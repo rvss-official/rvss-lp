@@ -5937,6 +5937,8 @@ window.addEventListener('load', () => {
       cta.addEventListener('click', function () {
         if (typeof gtag === 'function') {
           gtag('event', 'lp_gousetsu_form_click', {
+            // LIFF遷移でページが破棄されても送信を取りこぼさない
+            transport_type: 'beacon',
             link_url: cta.href,
             link_text: cta.textContent.trim(),
             page_location: window.location.href
