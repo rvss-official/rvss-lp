@@ -60,12 +60,39 @@
   const params = new URLSearchParams(window.location.search);
   const campaign = params.get('c') || DEFAULT_CAMPAIGN;
 
+  // LINEアプリを直接起動するためのカスタムスキーム。
+  // https://line.me/R/ti/p/... は Instagram等のアプリ内ブラウザだと
+  // アプリ遷移がブロックされQRコード表示に落ちることがあるため、
+  // スマホでは先にこちらを試す。
+  const LINE_SCHEME = LINE_URL.replace(/^https:\/\/line\.me\/R\//, 'line://');
+
   let redirected = false;
   function goToLine() {
     if (redirected) return;
     redirected = true;
-    // replace にして履歴を残さない（LINEから「戻る」でこのページに戻り再遷移するのを防ぐ）
-    window.location.replace(LINE_URL);
+
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    if (!isMobile) {
+      // PCにはLINEアプリが無い前提。QR表示ページへ送るしかない
+      // replace にして履歴を残さない（戻る操作での再遷移を防ぐ）
+      window.location.replace(LINE_URL);
+      return;
+    }
+
+    // アプリ起動に失敗したときだけ https へフォールバックする。
+    // 起動に成功するとページが hidden になるので、その場合は取り消す
+    // （成功後にフォールバックが走るとQR画面が二重に開いてしまう）
+    const fallback = setTimeout(function () {
+      window.location.replace(LINE_URL);
+    }, 1200);
+    document.addEventListener('visibilitychange', function () {
+      if (document.hidden) clearTimeout(fallback);
+    });
+    window.addEventListener('pagehide', function () {
+      clearTimeout(fallback);
+    });
+
+    window.location.href = LINE_SCHEME;
   }
 
   // イベント送信(beacon方式)。送信完了 or 300ms経過のどちらか早い方でリダイレクト
