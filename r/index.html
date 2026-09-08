@@ -35,7 +35,10 @@
   const GA_MEASUREMENT_ID = "G-88X3YDL7XR";
 
   // LINE公式アカウントの友だち追加URL
-  const LINE_URL = "https://lin.ee/ZEcpk15";
+  // lin.ee の短縮リンクは line.me へ301リダイレクトされ、余分なパラメータが付く。
+  // アプリ内ブラウザでLINEアプリが起動せずQR表示になるのを避けるため、展開後の
+  // URL（DMで従来使っていたものと同一）を直接指定する。
+  const LINE_URL = "https://line.me/R/ti/p/@392huviq";
 
   // デフォルトのキャンペーン名(URLに ?c=xxx が無い場合に使われる)
   const DEFAULT_CAMPAIGN = "default";
@@ -61,7 +64,8 @@
   function goToLine() {
     if (redirected) return;
     redirected = true;
-    window.location.href = LINE_URL;
+    // replace にして履歴を残さない（LINEから「戻る」でこのページに戻り再遷移するのを防ぐ）
+    window.location.replace(LINE_URL);
   }
 
   // イベント送信(beacon方式)。送信完了 or 300ms経過のどちらか早い方でリダイレクト
