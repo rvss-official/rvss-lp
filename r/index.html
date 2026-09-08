@@ -95,15 +95,20 @@
     window.location.href = LINE_SCHEME;
   }
 
-  // イベント送信(beacon方式)。送信完了 or 300ms経過のどちらか早い方でリダイレクト
+  // イベント送信。送信完了(event_callback)を待って即リダイレクトする。
+  // パラメータ名は dm_campaign。GA4は campaign_name を流入元判定用の
+  // 予約パラメータとして特別扱いするため、自前の値に使うと誤集計になる。
   gtag('event', 'dm_redirect', {
     transport_type: 'beacon',
-    campaign_name: campaign,
+    dm_campaign: campaign,
     event_callback: goToLine
   });
 
-  // コールバックが遅延・失敗した場合の保険(最大300msで強制遷移)
-  setTimeout(goToLine, 300);
+  // コールバックが来ない場合の保険。
+  // gtag.js は async 読み込みのため、モバイル回線では読み込み完了前に
+  // 遷移してしまうと dataLayer に積まれるだけで送信されない。
+  // 通常は event_callback が先に発火するので、ここまで待つのは失敗時のみ。
+  setTimeout(goToLine, 1500);
 </script>
 </body>
 </html>
