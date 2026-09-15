@@ -42,6 +42,16 @@
 
   // デフォルトのキャンペーン名(URLに ?c=xxx が無い場合に使われる)
   const DEFAULT_CAMPAIGN = "default";
+
+  // GA4 に表示する流入元の名前（URLの ?c= の値 → 表示名）。
+  // 新しい流入元を増やすときは、ここに1行足してから ?c= にその英字を使う。
+  // ここに無い値は、?c= の英字がそのまま表示される。
+  const CAMPAIGN_LABELS = {
+    "instagram_dm":    "インスタDM",
+    "instagram_bio":   "インスタプロフィール",
+    "instagram_story": "インスタストーリー",
+    "default":         "流入元不明（URLに?c=なし）"
+  };
 </script>
 <!-- ===================== 設定エリアここまで ===================== -->
 
@@ -119,11 +129,13 @@
     document.head.appendChild(tag);
 
     // イベント送信。送信完了(event_callback)を待って即リダイレクトする。
+    // イベント名は GA4 の画面でそのまま読めるよう日本語にしている
+    // （旧名 dm_redirect。切り替え前のデータは旧名のまま別の行に残る）。
     // パラメータ名は dm_campaign。GA4は campaign_name を流入元判定用の
     // 予約パラメータとして特別扱いするため、自前の値に使うと誤集計になる。
-    gtag('event', 'dm_redirect', {
+    gtag('event', 'インスタからLINEへ転送', {
       transport_type: 'beacon',
-      dm_campaign: campaign,
+      dm_campaign: CAMPAIGN_LABELS[campaign] || campaign,
       event_callback: goToLine
     });
 

@@ -5933,6 +5933,50 @@ window.addEventListener('load', () => {
 (function () {
   'use strict';
 
+  // ===== 表示名の設定（GA4の画面に出る名前。表示を変えたいときはここだけ直す） =====
+  //
+  // イベント名：GA4の「イベント」一覧にこの名前で並ぶ。
+  //   使える文字は 文字・数字・アンダースコア のみ（空白・記号・カッコは不可）、40文字まで。
+  //   名前を変えると、変える前のデータは旧名のまま別の行として残る。
+  var EVENT = {
+    ctaClick:    '合同説明会ボタンクリック',  // 旧 lp_gousetsu_form_click
+    lineClick:   '公式LINEリンククリック',    // 旧 lp_line_official_click
+    sectionView: 'セクション到達',            // 旧 lp_section_view
+    faqOpen:     'FAQを開いた',               // 旧 lp_faq_open
+    // スクロールは到達した割合ごとに別のイベントにする（旧 lp_scroll_depth）。
+    // 90% は GA4 標準の scroll が記録するので、ここでは送らない。
+    scroll25:    'スクロール25パーセント',
+    scroll50:    'スクロール50パーセント',
+    scroll75:    'スクロール75パーセント'
+  };
+
+  // CTAボタンの位置：HTMLの data-cta-pos → 表示名。頭の番号はページ上の並び順
+  var CTA_LABELS = {
+    header: '01 ヘッダー（常に表示）',
+    menu:   '02 メニューの中',
+    hero:   '03 ファーストビュー',
+    mid_1:  '04 中間①（成長セクションの後）',
+    mid_2:  '05 中間②（規模紹介の後）',
+    steps:  '06 参加までの流れ',
+    final:  '07 最終CTA',
+    footer: '08 フッター'
+  };
+
+  // セクション：HTMLの section の id → 表示名。頭の番号はページ上の並び順
+  var SECTION_LABELS = {
+    'top':           '01 ファーストビュー',
+    'what':          '02 活動内容（What We Do）',
+    'rvss-position': '03 四階層構造',
+    'mentors':       '04 縦の繋がり（メンター）',
+    'connection':    '05 横の繋がり（仲間）',
+    'growth':        '06 成長（Growth）',
+    'activity':      '07 活動条件（コミットメント）',
+    'faq':           '08 よくある質問',
+    'join':          '09 最終CTA'
+  };
+
+  // ===== 表示名の設定ここまで =====
+
   // textContent は改行とインデントを含むため、空白を1つに畳んでから使う。
   // （STEPSカードは h5 + span の複数行構造で、trim() だけでは改行が値に残る）
   function label(el) {
@@ -5951,10 +5995,11 @@ window.addEventListener('load', () => {
     // data-cta-pos を付けないと「どこが押されたか」が判別できない。
     document.querySelectorAll('.gousetsu-cta').forEach(function (cta) {
       cta.addEventListener('click', function () {
-        send('lp_gousetsu_form_click', {
+        var pos = cta.dataset.ctaPos;
+        send(EVENT.ctaClick, {
           // 遷移でページが破棄されても取りこぼさない
           transport_type: 'beacon',
-          cta_position: cta.dataset.ctaPos || 'unknown',
+          cta_position: CTA_LABELS[pos] || pos || '不明',
           link_text: label(cta),
           link_url: cta.href
         });
@@ -5962,10 +6007,9 @@ window.addEventListener('load', () => {
     });
 
     // --- 2. LINE公式アカウント（フッター）--------------------------------
-    // もう一方のコンバージョン導線。これまで未計測だった。
     document.querySelectorAll('a[href^="https://lin.ee/"]').forEach(function (a) {
       a.addEventListener('click', function () {
-        send('lp_line_official_click', {
+        send(EVENT.lineClick, {
           transport_type: 'beacon',
           link_text: label(a),
           link_url: a.href
@@ -5976,6 +6020,8 @@ window.addEventListener('load', () => {
     // --- 3. スクロール深度 ------------------------------------------------
     // GA4標準は90%到達しか取らない。どこで離脱しているかを見るため
     // 25/50/75% を補う。各しきい値は1ページ表示につき1回だけ送る。
+    // 割合ごとに別イベントにしておくと、カスタムディメンションを登録しなくても
+    // イベント一覧だけで到達率の減り方が読める。
     var hit = {};
     var ticking = false;
     function checkDepth() {
@@ -5987,7 +6033,7 @@ window.addEventListener('load', () => {
       [25, 50, 75].forEach(function (t) {
         if (pct >= t && !hit[t]) {
           hit[t] = true;
-          send('lp_scroll_depth', { percent_scrolled: t });
+          send(EVENT['scroll' + t], { percent_scrolled: t });
         }
       });
     }
@@ -6007,7 +6053,7 @@ window.addEventListener('load', () => {
           var id = e.target.id;
           if (!id || seenSection[id]) return;
           seenSection[id] = true;
-          send('lp_section_view', { section_id: id });
+          send(EVENT.sectionView, { section_id: SECTION_LABELS[id] || id });
         });
       // threshold は 0 にする。各セクションは画面より背が高く、
       // 割合しきい値を設けると到達しても永久に発火しないため。
@@ -6023,13 +6069,22 @@ window.addEventListener('load', () => {
       d.addEventListener('toggle', function () {
         if (!d.open) return;
         // summary 全体だと採番(Q.01)とトグル記号(+)が混ざるので、
-        // 質問文だけを持つ .qt を優先して拾う。
+        // 採番の .qn と質問文の .qt を別々に拾ってつなぐ。
         var qn = d.querySelector('summary .qn');
         var qt = d.querySelector('summary .qt');
         var s = d.querySelector('summary');
-        send('lp_faq_open', {
-          faq_id: qn ? label(qn) : 'other',
-          faq_question: qt ? label(qt) : (s ? label(s) : 'unknown')
+        var name;
+        if (qn && qt) {
+          name = label(qn) + ' ' + label(qt);           // 例: Q.03 費用はかかりますか？
+        } else {
+          // FAQ以外の開閉（四階層構造の「詳しくはこちら」など）は、どこのものか分かる名前にする
+          var sec = d.closest('section[id]');
+          var where = sec ? (SECTION_LABELS[sec.id] || sec.id).replace(/^\d+\s*/, '') : '';
+          name = '（FAQ以外）' + where + '「' + (s ? label(s) : '') + '」';
+        }
+        send(EVENT.faqOpen, {
+          faq_id: name.slice(0, 100),
+          faq_question: qt ? label(qt) : (s ? label(s) : '不明')
         });
       });
     });
