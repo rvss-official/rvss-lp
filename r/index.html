@@ -46,19 +46,27 @@
 <!-- ===================== 設定エリアここまで ===================== -->
 
 <!-- Google Analytics (GA4) -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-88X3YDL7XR"></script>
 <script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){ dataLayer.push(arguments); }
-  gtag('js', new Date());
-
-  // GA4はページ遷移が早すぎるとPVを取りこぼすため、
-  // send_page_view: false にして、イベントをbeacon方式で確実に送信する
-  gtag('config', GA_MEASUREMENT_ID, { send_page_view: false });
-
   // URLパラメータからキャンペーン名を取得(例: ?c=2026-08 や ?c=ab-a)
   const params = new URLSearchParams(window.location.search);
   const campaign = params.get('c') || DEFAULT_CAMPAIGN;
+
+  const ua = navigator.userAgent;
+
+  // iPadOS 13以降の Safari は Mac と同じUAを名乗るので、タッチ対応かどうかで見分ける
+  const isMobile = /iPhone|iPad|iPod|Android/i.test(ua) ||
+    (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+
+  // DMに貼られたリンクを Instagram 側が自動で読みに来るアクセス（プレビュー生成や
+  // 安全確認）を除外する。9/8〜9/15 のDM流入にはPC扱いのこうしたアクセスが混ざり、
+  // 多くが米国・スウェーデン（Metaのデータセンター所在地）からだった。
+  const isBot = navigator.webdriver === true ||
+    /bot|crawl|spider|slurp|facebookexternalhit|facebookcatalog|facebot|meta-external|headlesschrome|lighthouse/i.test(ua);
+
+  // 計測するのはスマホの人だけ。PCとbotはGA4を読み込まずにそのまま転送する。
+  // gtag.js を読み込むだけで session_start / first_visit が記録され、
+  // 訪問者数が水増しされるため、読み込み自体をしない。
+  const shouldMeasure = isMobile && !isBot;
 
   // LINEアプリを直接起動するためのカスタムスキーム。
   // https://line.me/R/ti/p/... は Instagram等のアプリ内ブラウザだと
@@ -71,7 +79,6 @@
     if (redirected) return;
     redirected = true;
 
-    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
     if (!isMobile) {
       // PCにはLINEアプリが無い前提。QR表示ページへ送るしかない
       // replace にして履歴を残さない（戻る操作での再遷移を防ぐ）
@@ -95,20 +102,37 @@
     window.location.href = LINE_SCHEME;
   }
 
-  // イベント送信。送信完了(event_callback)を待って即リダイレクトする。
-  // パラメータ名は dm_campaign。GA4は campaign_name を流入元判定用の
-  // 予約パラメータとして特別扱いするため、自前の値に使うと誤集計になる。
-  gtag('event', 'dm_redirect', {
-    transport_type: 'beacon',
-    dm_campaign: campaign,
-    event_callback: goToLine
-  });
+  if (!shouldMeasure) {
+    goToLine();
+  } else {
+    window.dataLayer = window.dataLayer || [];
+    window.gtag = function () { dataLayer.push(arguments); };
+    gtag('js', new Date());
 
-  // コールバックが来ない場合の保険。
-  // gtag.js は async 読み込みのため、モバイル回線では読み込み完了前に
-  // 遷移してしまうと dataLayer に積まれるだけで送信されない。
-  // 通常は event_callback が先に発火するので、ここまで待つのは失敗時のみ。
-  setTimeout(goToLine, 1500);
+    // GA4はページ遷移が早すぎるとPVを取りこぼすため、
+    // send_page_view: false にして、イベントをbeacon方式で確実に送信する
+    gtag('config', GA_MEASUREMENT_ID, { send_page_view: false });
+
+    const tag = document.createElement('script');
+    tag.async = true;
+    tag.src = 'https://www.googletagmanager.com/gtag/js?id=' + GA_MEASUREMENT_ID;
+    document.head.appendChild(tag);
+
+    // イベント送信。送信完了(event_callback)を待って即リダイレクトする。
+    // パラメータ名は dm_campaign。GA4は campaign_name を流入元判定用の
+    // 予約パラメータとして特別扱いするため、自前の値に使うと誤集計になる。
+    gtag('event', 'dm_redirect', {
+      transport_type: 'beacon',
+      dm_campaign: campaign,
+      event_callback: goToLine
+    });
+
+    // コールバックが来ない場合の保険。
+    // gtag.js は async 読み込みのため、モバイル回線では読み込み完了前に
+    // 遷移してしまうと dataLayer に積まれるだけで送信されない。
+    // 通常は event_callback が先に発火するので、ここまで待つのは失敗時のみ。
+    setTimeout(goToLine, 1500);
+  }
 </script>
 </body>
 </html>
