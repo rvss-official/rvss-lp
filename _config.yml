@@ -1,0 +1,10 @@
+# GitHub Pages（Jekyll）の設定
+#
+# README.md・HANDOFF.md などの内部資料を、LPのURL上で公開しないための除外設定。
+# GitHub のリポジトリ画面では、これまでどおり読める。
+# 「_」で始まるファイル・フォルダ（_assets/、images/_dl-tmp/ など）は、
+# この設定がなくても Jekyll の仕様で元から公開されない。
+exclude:
+  - README.md
+  - HANDOFF.md
+  - CLAUDE.md

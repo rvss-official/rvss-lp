@@ -1,10 +1,9 @@
-# RVSS スクール LP
+# RVSS 活動紹介 LP
 
-RVSS（Real Value Students）の新規参加者募集 LP。1ファイル完結の `index.html` + 画像素材で動く。
+RVSS（Real Value Students）の新規参加者募集 LP。LP本体は `index.html` の1ファイル（CSS・JSも中に入っている）で、ほかに SNS 用の計測中継ページ `r/index.html` がある。
 
-**プレビュー（制作者の作業確認用）**：https://rvsslp.shion1-1-t.workers.dev/
-
-> ※ 上記URLは制作者（田端）の Cloudflare Workers 作業環境。本番運用は別途お任せします。
+- 公開URL：https://rvss-official.github.io/rvss-lp/
+- リポジトリ：https://github.com/rvss-official/rvss-lp （GitHub Pages で公開）
 
 ---
 
@@ -14,16 +13,27 @@ RVSS（Real Value Students）の新規参加者募集 LP。1ファイル完結�
 rvss-lp/
 ├── README.md          ← このファイル
 ├── index.html         ← LP本体（編集対象）
+├── r/index.html       ← SNSからLINE公式アカウントへ送る計測用の中継ページ（後述）
 ├── images/            ← 画像素材一式
+├── _config.yml        ← GitHub Pages の設定（内部資料を公開しないための除外設定）
+├── HANDOFF.md         ← 前制作者の作業メモ（2026年5月時点の記録）
 ├── _qr.png            ← QRコード
 └── _assets/           ← 参考資料（公式インフォグラフィック等）
 ```
 
+「_」で始まるファイル・フォルダ（`_qr.png`、`_assets/`、`images/_dl-tmp/` など）は LP の URL 上には公開されない。ただしこのリポジトリ自体は公開設定なので、GitHub 上では誰でも中身を見られる。パスワードや個人情報はコミットしないこと。
+
 ---
 
-## ローカルでの確認方法
+## 更新のしかた
 
-ブラウザは `file://` 直接開きを CORS で弾く。簡易サーバ立てて見てください。
+`main` ブランチに push すると、GitHub Pages が自動で公開URLに反映する。デプロイは1分ほどで終わるが、キャッシュの都合で最大10分ほど古い表示が残ることがある。手元でビルドする必要はない（GitHub 側で Jekyll が自動で処理する。`_config.yml` はその設定）。
+
+`.nojekyll` は置かないこと。置くと Jekyll が動かなくなり、「_」で始まる素材や README・HANDOFF まで公開URLに出てしまう。
+
+### ローカルでの確認
+
+`index.html` はファイルを直接開いても表示できる。`/r/` のように URL の形で動きを確かめたいときは、簡易サーバを立てる。
 
 ```bash
 cd rvss-lp
@@ -33,19 +43,82 @@ python3 -m http.server 8000
 
 ---
 
-## 本番デプロイ
+## 申込・LINE導線
 
-このリポは LP の **HTML 素材** を渡すだけです。本番デプロイ先（独自ドメイン）には、運用担当が好きな方法で `index.html` + `images/` + `_qr.png` を配置してください。
+| 導線 | リンク先 | 置き場所 |
+|---|---|---|
+| 合同説明会の申込フォーム（LIFF） | `https://liff.line.me/2010676990-W6hZnVDH?source=activity_lp` | LP内の8か所（ヘッダー、メニュー、ファーストビュー、中間2つ、「参加までの流れ」のカード、最終CTA、フッター。すべて `class="gousetsu-cta"`） |
+| LINE公式アカウント | `https://lin.ee/ZEcpk15` | フッターの「公式LINE」「LINEで問い合わせる」 |
 
-選択肢の例：
-
-- **Netlify / Vercel / Cloudflare Pages**：このフォルダを丸ごとドラッグ＆ドロップ
-- **任意の Web サーバー**：FTP/SCP/rsync で配置
-- **Cloudflare Workers + Static Assets**：制作者の環境と同じ方式（`wrangler.toml` の `[assets] directory = "./"` で `wrangler deploy`）
+`?source=activity_lp` は LIFF 側で「活動紹介LPから来た人」を見分けるための印。外さないこと。
 
 ---
 
-## 直近の改訂内容（2026-06-19）
+## アクセス計測（GA4）
+
+- 測定ID：`G-88X3YDL7XR`（プロパティ名 RVSS_LP）
+- 計測コードの場所：`index.html` の `<head>` にある gtag の読み込み（測定IDが2か所）、`index.html` 末尾の「GA4 計測」ブロック、`r/index.html` の設定エリア（`GA_MEASUREMENT_ID`）。測定IDを変えるときはこの3か所を直す
+
+### LPで記録しているイベント
+
+| イベント名 | 記録されるとき | 一緒に送る値 |
+|---|---|---|
+| 合同説明会ボタンクリック | 合同説明会への導線（8か所）が押された | `cta_position`（どこのものか）、`link_text`、`link_url` |
+| 公式LINEリンククリック | フッターの LINE 公式リンクが押された | `link_text`、`link_url` |
+| セクション到達 | `id` の付いた9つのセクションが画面に入った（1回の表示につき各1回） | `section_id` |
+| スクロール25パーセント／50／75 | ページの25・50・75%まで読まれた | `percent_scrolled` |
+| FAQを開いた | FAQ（と四階層構造の「詳しくはこちら」）が開かれた | `faq_id`、`faq_question` |
+
+90%到達は GA4 標準の `scroll` イベントが記録する。
+
+GA4 の画面に出る名前（イベント名、ボタン位置名、セクション名）は、`index.html` の計測ブロック冒頭にある「表示名の設定」だけ直せば変わる。名前を変えると、変える前のデータは旧名のまま別の行として残る。
+
+ボタン位置（`cta_position`）は、各ボタンの `data-cta-pos` 属性で見分けている。ボタンを増やすときは `class="gousetsu-cta"` と `data-cta-pos="…"` を付け、「表示名の設定」の `CTA_LABELS` に1行足す。計測するセクションを増やすときは、`<section>` に `id` を付けて `SECTION_LABELS` に1行足す。
+
+### 過去データを見るときの注意
+
+計測の仕組みは途中で何度か変わっている（時刻は日本時間）。
+
+- 2026-09-01 20:15 より前は、別の測定ID（`G-H7M3BR51V3`）に記録されている。このプロパティには入っていない
+- 2026-09-15 18:04 より前のイベント名は旧名：`lp_gousetsu_form_click`（合同説明会ボタン）、`lp_line_official_click`、`lp_section_view`、`lp_faq_open`、`lp_scroll_depth`（25/50/75% を1つのイベントで記録）
+- 同じく 9-15 18:04 より前は、`cta_position`・`section_id`・`dm_campaign` に表示名ではなく英字のコード（`hero`、`faq`、`instagram_dm` など）が入っている
+- `/r/` のイベント名は `dm_redirect`（〜9-15 18:04）→ `インスタからLINEへ転送`（9-15 18:04〜18:38）→ `SNSからLINEへ転送`（9-15 18:38〜）
+- 2026-09-08 18:03 より前の `/r/` は、流入元を `campaign_name` という名前で送っていた（今は `dm_campaign`）
+- 2026-09-15 10:45 より前の `/r/` は、PC や Instagram の自動取得（bot）のアクセスも記録している
+
+---
+
+## SNSからLINEへの計測リンク（`/r/`）
+
+Instagram や X に貼る LINE 公式アカウントへのリンクは、LINE の URL を直接貼らずに `/r/` を経由させる。`/r/` は GA4 に「どこから来たか」を記録してから LINE を開く（スマホでは LINE アプリを直接起動する）。
+
+```
+https://rvss-official.github.io/rvss-lp/r/?c=（流入元コード）
+```
+
+| 流入元コード | GA4での表示名 | 使う場所 |
+|---|---|---|
+| `instagram_dm` | インスタDM | Instagram のDM（初回） |
+| `instagram_dm_recall` | インスタDM（掘り起こし） | 反応がなかった人へのDM |
+| `instagram_bio` | インスタプロフィール | Instagram のプロフィール欄 |
+| `instagram_story` | インスタストーリー | ストーリーのリンクスタンプ |
+| `x_bio` | Xプロフィール | X のプロフィールのリンク欄 |
+
+GA4 では「SNSからLINEへ転送」イベントの `dm_campaign`（カスタムディメンション名「DM流入元」）に表示名が入る。`?c=` が無いURLは「流入元不明（URLに?c=なし）」、表に無いコードは「未登録（コード）」と表示される。大文字や全角、末尾に付いた句読点は、照合の前に取り除いてそろえる。
+
+新しい流入元を足すときは、`r/index.html` の設定エリアにある `CAMPAIGN_LABELS` に「コード: 表示名」を1行足してから、そのコードを `?c=` に付けて配る。コードは英小文字・数字・`_` だけで作る（大文字を使うと一致しなくなる）。
+
+記録するのはスマホからのアクセスだけ。PC と、Instagram 等がリンクを自動で読みに来るアクセス（bot）は記録せずにそのまま LINE に転送する。それでも海外（米国・スウェーデン・アイルランド等）からの記録が少し混ざるので、人数を見るときは国を「Japan」に絞る。
+
+### GA4での見方
+
+レポート →「イベント」で、表の「イベント名」の横にある「＋」から「DM流入元」を追加すると、流入元ごとの人数が並ぶ。「SNSからLINEへ転送」をクリックした先の詳細画面では、流入元の欄が「データがありません」と表示されることがあるが、データは記録されている（GA4側の表示の問題）。
+
+---
+
+## 2026-06-19 の改訂内容（前制作者による）
+
+それ以降の変更は `git log` を見ること。
 
 公式訴求ポイントへの整合差分を実装。主な変更：
 
@@ -63,10 +136,11 @@ python3 -m http.server 8000
 
 ## 編集時の注意
 
-- LPは1HTMLにCSS/JSもインライン。`<style>` 内のCSSは4000行近くあり、reveal/transition系のクラスが多用されている
+- LPは1HTMLにCSS/JSもインライン。`<style>` 内のCSSは約4,700行あり、reveal/transition系のクラスが多用されている
 - `<br>` で改行制御している箇所多数。文言を変える時は **PC・スマホ両方の折り返しを必ず確認** すること
 - `.accent` クラスは青系アクセント色、`<span class="accent">〇〇</span>` の囲みで強調
 - 同じ文言が複数箇所に出ている可能性あり（マーキー2本 / title / 見出しなど）。変更時は **grep で全件抽出** してから一括修正
+- 合同説明会ボタンのリンク先を変えるときは、8か所すべて同じURLにそろえる（`class="gousetsu-cta"` で検索できる）
 
 ---
 

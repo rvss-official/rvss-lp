@@ -45,7 +45,9 @@
 
   // GA4 に表示する流入元の名前（URLの ?c= の値 → 表示名）。
   // 新しい流入元を増やすときは、ここに1行足してから ?c= にその英字を使う。
-  // ここに無い値は、?c= の英字がそのまま表示される。
+  // 左側（キー）は英小文字・数字・_ だけで書く。?c= の値は小文字にそろえてから照合するので、
+  // 大文字を含むキーは一致せず、正しいURLで来た人も「未登録」になってしまう。
+  // ここに無い値は「未登録（英字）」と表示される（手打ちミスや配り間違いに気づけるように）。
   const CAMPAIGN_LABELS = {
     "instagram_dm":        "インスタDM",
     "instagram_dm_recall": "インスタDM（掘り起こし）",
@@ -59,9 +61,16 @@
 
 <!-- Google Analytics (GA4) -->
 <script>
-  // URLパラメータからキャンペーン名を取得(例: ?c=2026-08 や ?c=ab-a)
+  // URLパラメータから流入元コードを取得（例: ?c=instagram_dm や ?c=x_bio）
   const params = new URLSearchParams(window.location.search);
-  const campaign = params.get('c') || DEFAULT_CAMPAIGN;
+  // 照合の前に値を整える。
+  //   NFKC: 全角の英数字・記号を半角にそろえる（ｉｎｓｔａｇｒａｍ → instagram、！→ !）
+  //   末尾の空白・句読点・ゼロ幅スペースを外す（文末に貼られたURLに紛れ込むことがある）
+  const campaign = (params.get('c') || '')
+    .normalize('NFKC')
+    .trim()
+    .toLowerCase()
+    .replace(/[\s.,。、!?)」』​]+$/u, '') || DEFAULT_CAMPAIGN;
 
   const ua = navigator.userAgent;
 
@@ -138,7 +147,11 @@
     // 予約パラメータとして特別扱いするため、自前の値に使うと誤集計になる。
     gtag('event', 'SNSからLINEへ転送', {
       transport_type: 'beacon',
-      dm_campaign: CAMPAIGN_LABELS[campaign] || campaign,
+      // hasOwnProperty で引くのは、?c=constructor などが JS の組み込みプロパティに当たらないようにするため。
+      // GA4 のパラメータ値は100文字までなので、未登録の値は90文字で切る
+      dm_campaign: Object.prototype.hasOwnProperty.call(CAMPAIGN_LABELS, campaign)
+        ? CAMPAIGN_LABELS[campaign]
+        : '未登録（' + campaign.slice(0, 90) + '）',
       event_callback: goToLine
     });
 
